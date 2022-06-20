@@ -102,4 +102,19 @@ object StreamPlayground extends App {
   println(startFrom0.map(_ * 2).take(4).toList())
   println(startFrom0.flatMap(x => new Cons(x, new Cons(x + 1, EmptyStream))).take(10).toList())
   println(startFrom0.filter(_ < 10).take(10).toList())
+
+  // exercise: fibonacci number stream
+  def fibonacci(first: BigInt, second: BigInt): MyStream[BigInt] =
+    new Cons(first, fibonacci(second, first + second))
+
+  println(fibonacci(1, 1).take(100).toList())
+
+  // Eratosthenes sieve method of finding prime number
+  // an array starts with 2, remove multiple of 2 from the tail
+  // then remove multiple of 3 from the tail
+  def eratosthenes(numbers: MyStream[Int]): MyStream[Int] =
+    if (numbers.isEmpty) numbers
+    else new Cons(numbers.head, eratosthenes(numbers.tail.filter(_ % numbers.head != 0)))
+
+  println(eratosthenes(MyStream.from(2)(_ + 1)).take(100).toList())
 }
