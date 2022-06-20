@@ -11,7 +11,7 @@ abstract class MyStream[+A] {
   def tail: MyStream[A]
 
   def #::[B >: A](elem: B): MyStream[B] // prepend
-  def ++[B >: A](another: MyStream[B]): MyStream[B]
+  def ++[B >: A](another: => MyStream[B]): MyStream[B]
 
   def foreach(f: A => Unit): Unit
   def map[B](f: A => B): MyStream[B]
@@ -40,7 +40,7 @@ object EmptyStream extends MyStream[Nothing] {
   def tail: MyStream[Nothing] = throw new NoSuchElementException
 
   def #::[B >: Nothing](elem: B): MyStream[B] = new Cons(elem, this) // prepend
-  def ++[B >: Nothing](another: MyStream[B]): MyStream[B] = another
+  def ++[B >: Nothing](another: => MyStream[B]): MyStream[B] = another
 
   def foreach(f: Nothing => Unit): Unit = ()
   def map[B](f: Nothing => B): MyStream[B] = this // no element to map/flatmap
@@ -59,7 +59,7 @@ class Cons[+A](hd: A, tl: => MyStream[A]) extends MyStream[A] {
   override lazy val tail: MyStream[A] = tl // call by need
 
   def #::[B >: A](elem: B): MyStream[B] = new Cons(elem, this) // prepend
-  def ++[B >: A](another: MyStream[B]): MyStream[B] = new Cons(head, tail ++ another)
+  def ++[B >: A](another: => MyStream[B]): MyStream[B] = new Cons(head, tail ++ another)
 
   def foreach(f: A => Unit): Unit = {
     f(head)
@@ -100,6 +100,6 @@ object StreamPlayground extends App {
   startFrom0.take(10).foreach(println)
 
   println(startFrom0.map(_ * 2).take(4).toList())
-  println(startFrom0.flatMap(x => new Cons(x, new Cons(x + 1, EmptyStream))).take(3).toList())
-
+  println(startFrom0.flatMap(x => new Cons(x, new Cons(x + 1, EmptyStream))).take(10).toList())
+  println(startFrom0.filter(_ < 10).take(10).toList())
 }
