@@ -82,7 +82,7 @@ object Monad extends App {
   // pass value by name, which prevents evaluation when constructed
   class Lazy[+A](value: => A) {
     def use: A = value
-    def flatMap[B](f: A => Lazy[B]): Lazy[B] = f(value)
+    def flatMap[B](f: (=> A) => Lazy[B]): Lazy[B] = f(value)
   }
 
   object Lazy {
@@ -97,5 +97,17 @@ object Monad extends App {
   }
 
   // should see both the lyric and 42
-  print(lazyInstance.use)
+  //  print(lazyInstance.use)
+
+  // ran into problem here, we see the lyric printed
+  // even though it should not. Because flatMap is evaluated eagerly.
+
+  // to fix, change function type to receive param by name as well:
+  //   flatMap[B](f: A => Lazy[B]):
+  // to:
+  // flatMap[B](f: (=> A) => Lazy[B]):
+  val flatMappedInstance = lazyInstance.flatMap(x => Lazy {
+    10 * x
+  })
+
 }
