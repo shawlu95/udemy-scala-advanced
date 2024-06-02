@@ -24,7 +24,20 @@ object JVMConcurrencyProblems {
   case class BankAccount(var amount: Int)
 
   def buy(account: BankAccount, thing: String, price: Int): Unit = {
+    /*
+      involves 3 steps
+      1. read old value
+      2. compute
+      3. write new value
+    */
     account.amount -= price
+  }
+
+  def buySafe(account: BankAccount, thing: String, price: Int): Unit = {
+    // does not allow multiple threads to run the critical section at the same time
+    account.synchronized{
+      account.amount -= price // critical section, subject to race condition
+    }
   }
 
   def main(args: Array[String]): Unit = {
