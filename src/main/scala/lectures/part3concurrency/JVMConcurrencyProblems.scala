@@ -42,7 +42,9 @@ object JVMConcurrencyProblems {
 
   def main(args: Array[String]): Unit = {
     // runInParallel()
-    demoBankingProblem()
+    // demoBankingProblem()
+
+    inceptionThreads(50).start()
   }
 
   def demoBankingProblem(): Unit = {
@@ -56,5 +58,59 @@ object JVMConcurrencyProblems {
       thread2.join()
       if (account.amount != 43000) println(s"the bank account balance is inconsistent: ${account.amount}")
     }
+  }
+
+  /**
+   * Exercise
+   * 1. create "inception threads"
+   *  thread1, print("hello from thread 1")
+   *    creates thread 2, print("hello from thread 2")
+   *      creates thread 3, print("hello from thread 3")
+   * print all messages in REVERSE order
+   *
+   * 2. what's the max/min value of x?
+   *
+   * 3. sleep fallacy
+   */
+  def inceptionThreads(maxThreads: Int, i: Int = 1): Thread =
+    new Thread(() => {
+      if (i < maxThreads) {
+        val newThread = inceptionThreads(maxThreads, i + 1)
+        newThread.start()
+        // wait till the thread finishes
+        newThread.join()
+      }
+      println(s"Hello from thread $i")
+    })
+
+  // we always get x = 1, because all threads read value 0, and increase it to 1
+  def minMaxX(): Unit = {
+    var x = 0
+    val threads = (1 to 100).map(_ => new Thread(() => x += 1))
+    threads.foreach(_.start())
+  }
+
+  /**
+   * Almost always get "Scala is awesome"
+   * is it always guaranteed? No
+   *
+   * Obnoxious situation
+   * Some JVM, sleep "yields execution"
+   */
+  def demoSleepFallacy(): Unit = {
+    var message = ""
+    val awesomeThread = new Thread() {
+      Thread.sleep(1000) // one second later, change message
+      message = "Scala is awesome"
+    }
+    // main thread
+    message = "Scala sucks"
+    awesomeThread.start()
+    Thread.sleep(1001)
+
+    // to guarantee, block thread that does the work
+    awesomeThread.join()
+
+    println(message)
   }
 }
