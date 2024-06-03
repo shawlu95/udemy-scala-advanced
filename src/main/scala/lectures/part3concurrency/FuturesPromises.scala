@@ -2,7 +2,7 @@ package lectures.part3concurrency
 
 import scala.concurrent.{Await, Future, Promise}
 import scala.concurrent.duration.*
-import scala.util.{Failure, Random, Success}
+import scala.util.{Failure, Random, Success, Try}
 
 // handle thread allocation for futures, passed as implicit param by compiler
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -155,14 +155,106 @@ object FuturesPromises extends App {
     println("[producer] crunching numbers")
     Thread.sleep(1000)
     // "fulfilling" the promise
-//    promise.success(42)
-//    println("[producer] done")
+    promise.success(42)
+    println("[producer] done")
 
-    promise.failure(new RuntimeException("exception"))
-    println("[producer] failed")
+//    promise.failure(new RuntimeException("exception"))
+//    println("[producer] failed")
   })
 
   producer.start()
   Thread.sleep(1000)
+
+  /**
+   * 1) fulfill a future immediately with a value
+   * 2) inSequence(fa, fb)
+   * 3) first(fa, fb) => new future that contains the first-completed future value
+   * 4) last(fa, fb) => new future with the last-completed future value
+   * 5) retryUntil(action: () => Future[T], condition: T => Boolean): Future[T]
+   */
+  // 1 - fulfill immediately
+  def fulfillImmediately[T](value: T): Future[T] = Future(value)
+
+  // 2 - in sequence
+  def inSequence[A, B](first: Future[A], second: Future[B]): Future[B] = first.flatMap(_ => second)
+
+  // 3 - first(fa, fb)
+  def first[A](first: Future[A], second: Future[A]) = {
+    val promise = Promise[A]
+
+//    def tryComplete(promise: Promise[A], result: Try[A]): Unit = result match {
+//      case Success(r) => try {
+//        promise.success(r)
+//      } catch {
+//        case _ =>
+//      }
+//      case Failure(e) => try {
+//        promise.failure(e)
+//      } catch {
+//        case _ =>
+//      }
+//    }
+//    first.onComplete(result => tryComplete(promise, result))
+//    second.onComplete(_ => tryComplete(promise, _))
+
+    // even better, use the built in method
+    first.onComplete(promise.tryComplete)
+    second.onComplete(promise.tryComplete)
+    promise.future
+  }
+
+  // 4 - last completed future
+  def last[A](first: Future[A], second: Future[A]) = {
+    // both futures try to complete this promise
+    val bothPromise = Promise[A]
+    val lastPromise = Promise[A]
+
+    val checkAndComplete = (result: Try[A]) =>
+      // the last-completed future will fail tryComplete
+      // and we use its result to fulfill lastPromise
+      if (!bothPromise.tryComplete(result))
+        lastPromise.complete(result)
+
+    // the last-completed future will complete the second promise
+    first.onComplete(checkAndComplete)
+    second.onComplete(checkAndComplete)
+    lastPromise.future
+  }
+
+  val fast = Future {
+    Thread.sleep(100)
+    42
+  }
+
+  val slow = Future {
+    Thread.sleep(200)
+    45
+  }
+
+  first(fast, slow).foreach(f => println("FIRST: " + f))
+  last(fast, slow).foreach(l => println("LAST: " + l))
+
+  Thread.sleep(1000)
+
+  // 4 - retry util
+  def retryUtil[A](action: () => Future[A], condition: A => Boolean): Future[A] =
+    action()
+      .filter(condition)
+      .recoverWith {
+        case _ => retryUtil(action, condition)
+      }
+
+  val random = new Random()
+  val action = () => Future {
+    Thread.sleep(100)
+    val nextValue = random.nextInt(100)
+    println("generated " + nextValue)
+    nextValue
+  }
+
+  retryUtil(action, (x: Int) => x < 10)
+    .foreach(result => println(s"settled at $result"))
+
+  Thread.sleep(10000)
 }
 
