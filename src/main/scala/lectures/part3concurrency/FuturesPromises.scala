@@ -73,5 +73,32 @@ object FuturesPromises extends App {
     case Failure(e) => e.printStackTrace()
   }
   Thread.sleep(1000)
+
+  // functional composition of futures
+  // map, flatMap, filter
+  val nameOnTheWall = mark.map(profile => profile.name) // Future[String]
+  val marksBestFriend = mark.flatMap(profile => SocialNetwork.fetchBestFriends(profile))
+  val zucksBestFriendRestricted = marksBestFriend.filter(profile => profile.name.startsWith("Z"))
+
+  // for comprehension
+  for {
+    mark <- SocialNetwork.fetchProfile("fb.id.1-zuck")
+    bill <- SocialNetwork.fetchBestFriends(mark)
+  } mark.poke(bill)
+
+  Thread.sleep(1000)
+
+  // fallbacks
+  // return a newly constructed object
+  val aProfileNoMatterWhat = SocialNetwork.fetchProfile("unknown id").recover {
+    case e: Throwable => Profile("fb.id.0-dummy", "Forever Alone") // return a placeholder profile
+  }
+
+  // we know "fb.id.0-dummy" must not fail, so we can fetch again
+  val aFetchedProfileNoMatterWhat = SocialNetwork.fetchProfile("unknown id").recover {
+    case e: Throwable => SocialNetwork.fetchProfile("fb.id.0-dummy")
+  }
+
+  val fallBackResult = SocialNetwork.fetchProfile("unknown id").fallbackTo(SocialNetwork.fetchProfile("fb.id.0-dummy"))
 }
 
