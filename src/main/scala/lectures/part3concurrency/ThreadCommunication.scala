@@ -1,5 +1,8 @@
 package lectures.part3concurrency
 
+import scala.collection.mutable
+import scala.util.Random
+
 object ThreadCommunication extends App {
   /**
    * The classical producer-consumer problem
@@ -108,5 +111,75 @@ object ThreadCommunication extends App {
 //  [producer] computing...
 //  [producer] I'm producing 42
 //  [consumer] I have consumed 42
-  smartProdCons()
+//  smartProdCons()
+
+  /**
+   * producer is filling a buffer (3 spots) with values
+   * consumer extract NEW values from buffer
+   * both are running indefinitely
+   * producer and consumer may block each other
+   *
+   * when buffer is full, producer must block,
+   * till consumer extracts some value(s) out of the buffer
+   *
+   * if buffer is empty, consumer must block,
+   * till producer writes some value(s) to buffer
+   *
+   * producer -> [ ? ? ?] -> consumer
+   */
+
+  def prodConsLargeBuffer(): Unit = {
+    val buffer: mutable.Queue[Int] = new mutable.Queue[Int]
+    val capability = 3
+
+    val consumer = new Thread(() => {
+      val random = new Random()
+      while (true) {
+        buffer.synchronized {
+          if (buffer.isEmpty) {
+            println("[consumer] buffer empty, waiting")
+            buffer.wait()
+          }
+          // woken up by the producer
+          // there must be at least one value in the buffer
+          val x = buffer.dequeue()
+          println(s"[consumer] consumed $x")
+
+          // avake consumer, there's value available
+          buffer.notify()
+        }
+        // simulate some heavy computation with the extracted value
+        // sleep maximum 500ms
+        Thread.sleep(random.nextInt(500))
+      }
+    })
+
+    val producer = new Thread(() => {
+      val random = new Random()
+      var i = 0 // keep track of index
+      while (true) {
+        buffer.synchronized{
+          if (buffer.size == capability) {
+            println("[producer] buffer is full, waiting...")
+            buffer.wait()
+          }
+          // woken up by consumer
+          // there must be at least one empty space in buffer
+          println(f"[producer] producing $i")
+          buffer.enqueue(i)
+
+          // awake producer, there's empty space available
+          buffer.notify()
+
+          i += 1
+        }
+        Thread.sleep(random.nextInt(500))
+      }
+    })
+
+    consumer.start()
+    producer.start()
+  }
+
+  prodConsLargeBuffer()
 }
