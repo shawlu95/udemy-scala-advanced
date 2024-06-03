@@ -130,7 +130,7 @@ object ThreadCommunication extends App {
 
   def prodConsLargeBuffer(): Unit = {
     val buffer: mutable.Queue[Int] = new mutable.Queue[Int]
-    val capability = 3
+    val capacity = 3
 
     val consumer = new Thread(() => {
       val random = new Random()
@@ -145,7 +145,7 @@ object ThreadCommunication extends App {
           val x = buffer.dequeue()
           println(s"[consumer] consumed $x")
 
-          // avake consumer, there's value available
+          // awake producer, there's empty space available
           buffer.notify()
         }
         // simulate some heavy computation with the extracted value
@@ -159,7 +159,7 @@ object ThreadCommunication extends App {
       var i = 0 // keep track of index
       while (true) {
         buffer.synchronized{
-          if (buffer.size == capability) {
+          if (buffer.size == capacity) {
             println("[producer] buffer is full, waiting...")
             buffer.wait()
           }
@@ -168,7 +168,7 @@ object ThreadCommunication extends App {
           println(f"[producer] producing $i")
           buffer.enqueue(i)
 
-          // awake producer, there's empty space available
+          // awake consumer, there's value available
           buffer.notify()
 
           i += 1
@@ -181,5 +181,57 @@ object ThreadCommunication extends App {
     producer.start()
   }
 
-  prodConsLargeBuffer()
+  // prodConsLargeBuffer()
+
+  /**
+   * multiple producer-consumers acting on the same buffer
+   */
+  class Consumer(id: Int, buffer: mutable.Queue[Int]) extends Thread {
+    override def run(): Unit = {
+      val random = new Random()
+      while (true) {
+        buffer.synchronized {
+          while (buffer.isEmpty) {
+            println(s"[consumer $id] buffer empty, waiting")
+            buffer.wait()
+          }
+          // woken up by the producer
+          // there must be at least one value in the buffer
+          val x = buffer.dequeue()
+          println(s"[consumer $id] consumed $x")
+
+          // awake producer, there's empty space available
+          buffer.notify()
+        }
+        // simulate some heavy computation with the extracted value
+        // sleep maximum 500ms
+        Thread.sleep(random.nextInt(500))
+      }
+    }
+  }
+
+  class Producer(id: Int, buffer: mutable.Queue[Int], capacity: Int) extends Thread {
+    override def run(): Unit = {
+      val random = new Random()
+      var i = 0 // keep track of index
+      while (true) {
+        buffer.synchronized{
+          if (buffer.size == capacity) {
+            println(s"[producer $id] buffer is full, waiting...")
+            buffer.wait()
+          }
+          // woken up by consumer
+          // there must be at least one empty space in buffer
+          println(s"[producer $id] producing $i")
+          buffer.enqueue(i)
+
+          // awake consumer, there's value available
+          buffer.notify()
+
+          i += 1
+        }
+        Thread.sleep(random.nextInt(500))
+      }
+    }
+  }
 }
