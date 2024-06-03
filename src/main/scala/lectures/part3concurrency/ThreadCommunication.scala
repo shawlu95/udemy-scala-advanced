@@ -201,6 +201,8 @@ object ThreadCommunication extends App {
           println(s"[consumer $id] consumed $x")
 
           // awake producer, there's empty space available
+          // this could awake another consumer, which finds the buffer empty
+          // so we change if statement to WHILE loop
           buffer.notify()
         }
         // simulate some heavy computation with the extracted value
@@ -216,7 +218,7 @@ object ThreadCommunication extends App {
       var i = 0 // keep track of index
       while (true) {
         buffer.synchronized{
-          if (buffer.size == capacity) {
+          while (buffer.size == capacity) {
             println(s"[producer $id] buffer is full, waiting...")
             buffer.wait()
           }
@@ -226,6 +228,8 @@ object ThreadCommunication extends App {
           buffer.enqueue(i)
 
           // awake consumer, there's value available
+          // we don't want to awake another producer, to try overflow buffer
+          // so we change if statement to WHILE loop
           buffer.notify()
 
           i += 1
@@ -234,4 +238,14 @@ object ThreadCommunication extends App {
       }
     }
   }
+
+  def multiProdCons(nConsumer: Int, nProducer: Int): Unit = {
+    val buffer: mutable.Queue[Int] = new mutable.Queue[Int]
+    val capacity = 3
+
+    (1 to nConsumer).foreach(i => new Consumer(i, buffer).start())
+    (1 to nProducer).foreach(i => new Producer(i, buffer, capacity).start())
+  }
+
+  multiProdCons(3, 3)
 }
