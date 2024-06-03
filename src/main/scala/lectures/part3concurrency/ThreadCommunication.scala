@@ -203,7 +203,7 @@ object ThreadCommunication extends App {
           // awake producer, there's empty space available
           // this could awake another consumer, which finds the buffer empty
           // so we change if statement to WHILE loop
-          buffer.notify()
+          buffer.notifyAll()
         }
         // simulate some heavy computation with the extracted value
         // sleep maximum 500ms
@@ -230,7 +230,7 @@ object ThreadCommunication extends App {
           // awake consumer, there's value available
           // we don't want to awake another producer, to try overflow buffer
           // so we change if statement to WHILE loop
-          buffer.notify()
+          buffer.notifyAll()
 
           i += 1
         }
